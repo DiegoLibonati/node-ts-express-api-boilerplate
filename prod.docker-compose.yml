@@ -1,0 +1,43 @@
+name: boilerplate-prod
+
+services:
+  boilerplate-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.production
+    restart: always
+    env_file:
+      - ./.env
+    depends_on:
+      boilerplate-db:
+        condition: service_healthy
+    ports:
+      - 5050:5050
+    networks:
+      - boilerplate-net
+
+  boilerplate-db:
+    image: postgres:16
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - boilerplate-net
+
+volumes:
+  db-data:
+    driver: local
+
+networks:
+  boilerplate-net:
+    driver: bridge

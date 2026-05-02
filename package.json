@@ -1,0 +1,71 @@
+{
+  "name": "node-ts-express-sql-api-boilerplate",
+  "version": "0.0.1",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "description": "Node Ts Express SQL Api Boilerplate is a production-ready starting point for building REST APIs with Node.js, Express, TypeScript, and PostgreSQL via Prisma.",
+  "author": {
+    "name": "Diego Libonati",
+    "email": "diego.libonati1998@gmail.com"
+  },
+  "main": "dist/server.js",
+  "private": true,
+  "license": "MIT",
+  "dependencies": {
+    "@prisma/client": "^5.20.0",
+    "express": "^4.21.0",
+    "morgan": "^1.10.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "@types/express": "^5.0.0",
+    "@types/jest": "^30.0.0",
+    "@types/morgan": "^1.9.10",
+    "@types/node": "^22.0.0",
+    "@types/supertest": "^6.0.2",
+    "eslint": "^9.0.0",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-plugin-prettier": "^5.0.0",
+    "globals": "^15.0.0",
+    "husky": "^9.0.0",
+    "jest": "^30.0.0",
+    "lint-staged": "^15.0.0",
+    "prettier": "^3.0.0",
+    "prisma": "^5.20.0",
+    "supertest": "^7.0.0",
+    "ts-jest": "^29.4.6",
+    "tsc-alias": "^1.8.16",
+    "tsx": "^4.0.0",
+    "typescript": "^5.5.3",
+    "typescript-eslint": "^8.0.0"
+  },
+  "scripts": {
+    "dev": "tsx watch --tsconfig tsconfig.app.json src/server.ts",
+    "build": "tsc -p tsconfig.app.json && tsc-alias -p tsconfig.app.json",
+    "start": "node dist/server.js",
+    "lint": "eslint src",
+    "lint:fix": "eslint src --fix",
+    "lint:all": "eslint src __tests__ --fix",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\"",
+    "format:all": "prettier --write \"src/**/*.ts\" \"__tests__/**/*.ts\"",
+    "type-check": "tsc -p tsconfig.app.json --noEmit",
+    "test": "jest --runInBand --verbose",
+    "test:watch": "jest --runInBand --watchAll --verbose",
+    "test:coverage": "jest --runInBand --coverage",
+    "migrate:dev": "prisma migrate dev",
+    "migrate:deploy": "prisma migrate deploy",
+    "db:studio": "prisma studio",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.ts": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md}": [
+      "prettier --write"
+    ]
+  }
+}

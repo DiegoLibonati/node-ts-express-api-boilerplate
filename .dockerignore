@@ -1,0 +1,28 @@
+# Dependencies (reinstalled inside the image)
+node_modules/
+
+# Build output (rebuilt inside the image)
+dist/
+coverage/
+
+# Git
+.git/
+.gitignore
+
+# Environment files (injected at runtime via env_file or environment)
+.env
+
+# Docker files (not needed inside the image)
+*.docker-compose.yml
+Dockerfile*
+
+# Editor and tooling metadata
+.claude/
+.husky/
+.prettierrc
+.prettierignore
+eslint.config.js
+
+# Documentation
+README.md
+*.postman_collection.json
