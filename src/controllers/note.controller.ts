@@ -10,9 +10,9 @@ import { CODES_NOT, CODES_SUCCESS } from "@/constants/codes.constant";
 import { MESSAGES_NOT, MESSAGES_SUCCESS } from "@/constants/messages.constant";
 
 export const NoteController = {
-  getAll: async (_req: Request, res: Response): Promise<void> => {
+  getAll: (_req: Request, res: Response): void => {
     try {
-      const notes = await NoteService.getAllNotes();
+      const notes = NoteService.getAllNotes();
       res.status(200).json({
         code: CODES_SUCCESS.getAllNotes,
         message: MESSAGES_SUCCESS.getAllNotes,
@@ -24,7 +24,7 @@ export const NoteController = {
     }
   },
 
-  getById: async (req: Request<{ id: string }>, res: Response): Promise<void> => {
+  getById: (req: Request<{ id: string }>, res: Response): void => {
     try {
       const { id } = req.params;
 
@@ -35,7 +35,7 @@ export const NoteController = {
         return;
       }
 
-      const note = await NoteService.getNoteById(Number(id));
+      const note = NoteService.getNoteById(Number(id));
 
       if (!note) {
         res
@@ -55,7 +55,7 @@ export const NoteController = {
     }
   },
 
-  create: async (req: Request, res: Response): Promise<void> => {
+  create: (req: Request, res: Response): void => {
     try {
       const { title, content } = req.body as { title?: string; content?: string };
 
@@ -73,7 +73,7 @@ export const NoteController = {
         return;
       }
 
-      const note = await NoteService.createNote({ title: title.trim(), content: content.trim() });
+      const note = NoteService.createNote({ title: title.trim(), content: content.trim() });
 
       res.status(201).json({
         code: CODES_SUCCESS.createNote,
@@ -86,7 +86,7 @@ export const NoteController = {
     }
   },
 
-  update: async (req: Request<{ id: string }>, res: Response): Promise<void> => {
+  update: (req: Request<{ id: string }>, res: Response): void => {
     try {
       const { id } = req.params;
       const { title, content } = req.body as { title?: string; content?: string };
@@ -102,7 +102,7 @@ export const NoteController = {
       if (title !== undefined) data.title = title.trim();
       if (content !== undefined) data.content = content.trim();
 
-      const note = await NoteService.updateNote(Number(id), data);
+      const note = NoteService.updateNote(Number(id), data);
 
       res.status(200).json({
         code: CODES_SUCCESS.updateNote,
@@ -115,7 +115,7 @@ export const NoteController = {
     }
   },
 
-  delete: async (req: Request<{ id: string }>, res: Response): Promise<void> => {
+  delete: (req: Request<{ id: string }>, res: Response): void => {
     try {
       const { id } = req.params;
 
@@ -126,7 +126,7 @@ export const NoteController = {
         return;
       }
 
-      await NoteService.deleteNote(Number(id));
+      NoteService.deleteNote(Number(id));
 
       res.status(200).json({
         code: CODES_SUCCESS.deleteNote,

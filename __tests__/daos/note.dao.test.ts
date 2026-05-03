@@ -1,137 +1,146 @@
-import { Prisma } from "@prisma/client";
-
-import type { Note } from "@prisma/client";
+import type { Note } from "@/types/models";
 import type { NoteCreatePayload, NoteUpdatePayload } from "@/types/payloads";
+
+import { NotFoundError } from "@/helpers/not_found_error.helper";
 
 import { NoteDAO } from "@/daos/note.dao";
 
-import { prisma } from "@/configs/prisma.config";
-
-const validPayload: NoteCreatePayload = {
-  title: "Test note",
-  content: "Test content",
-};
-
 describe("note.dao", () => {
-  beforeEach(async (): Promise<void> => {
-    await prisma.note.deleteMany();
-  });
-
-  afterAll(async (): Promise<void> => {
-    await prisma.$disconnect();
-  });
-
   describe("findMany", () => {
-    it("should return an empty array when there are no notes", async () => {
-      const result: Note[] = await NoteDAO.findMany();
+    it("should return an empty array when store is empty", () => {
+      const result: Note[] = NoteDAO.findMany();
 
       expect(result).toEqual([]);
     });
 
-    it("should return all notes ordered by createdAt descending", async () => {
-      await prisma.note.create({
-        data: { title: "First", content: "A", createdAt: new Date("2024-01-01T00:00:00Z") },
-      });
-      await prisma.note.create({
-        data: { title: "Second", content: "B", createdAt: new Date("2024-01-02T00:00:00Z") },
-      });
+    it("should return notes sorted by createdAt descending", () => {
+      jest.useFakeTimers();
+      const note1: Note = NoteDAO.create({ title: "First", content: "Content 1" });
+      jest.advanceTimersByTime(1000);
+      const note2: Note = NoteDAO.create({ title: "Second", content: "Content 2" });
+      jest.useRealTimers();
 
-      const result: Note[] = await NoteDAO.findMany();
+      const result: Note[] = NoteDAO.findMany();
 
       expect(result).toHaveLength(2);
-      expect(result[0]!.title).toBe("Second");
-      expect(result[1]!.title).toBe("First");
+      expect(result[0]?.id).toBe(note2.id);
+      expect(result[1]?.id).toBe(note1.id);
+    });
+
+    it("should return a new array and not the original reference", () => {
+      NoteDAO.create({ title: "Test", content: "Content" });
+
+      const result1: Note[] = NoteDAO.findMany();
+      const result2: Note[] = NoteDAO.findMany();
+
+      expect(result1).not.toBe(result2);
     });
   });
 
   describe("findById", () => {
-    it("should return the note when it exists", async () => {
-      const created: Note = await prisma.note.create({ data: validPayload });
+    it("should return null when note does not exist", () => {
+      const result: Note | null = NoteDAO.findById(999);
 
-      const result: Note | null = await NoteDAO.findById(created.id);
+      expect(result).toBeNull();
+    });
+
+    it("should return the note when it exists", () => {
+      const created: Note = NoteDAO.create({ title: "Test", content: "Content" });
+
+      const result: Note | null = NoteDAO.findById(created.id);
 
       expect(result).not.toBeNull();
       expect(result?.id).toBe(created.id);
-      expect(result?.title).toBe(validPayload.title);
-      expect(result?.content).toBe(validPayload.content);
-    });
-
-    it("should return null when the note does not exist", async () => {
-      const result: Note | null = await NoteDAO.findById(99999);
-
-      expect(result).toBeNull();
+      expect(result?.title).toBe("Test");
     });
   });
 
   describe("create", () => {
-    it("should insert a note and return it with a generated id", async () => {
-      const result: Note = await NoteDAO.create(validPayload);
+    it("should create a note with the provided title and content", () => {
+      const payload: NoteCreatePayload = { title: "My Note", content: "My Content" };
 
-      expect(result.id).toEqual(expect.any(Number));
-      expect(result.title).toBe(validPayload.title);
-      expect(result.content).toBe(validPayload.content);
-      expect(result.createdAt).toBeInstanceOf(Date);
-      expect(result.updatedAt).toBeInstanceOf(Date);
+      const result: Note = NoteDAO.create(payload);
+
+      expect(result.title).toBe("My Note");
+      expect(result.content).toBe("My Content");
     });
 
-    it("should persist the note to the database", async () => {
-      const created: Note = await NoteDAO.create(validPayload);
+    it("should assign an id starting from 1", () => {
+      const result: Note = NoteDAO.create({ title: "Note", content: "Content" });
 
-      const fromDb: Note | null = await prisma.note.findUnique({
-        where: { id: created.id },
-      });
+      expect(result.id).toBe(1);
+    });
 
-      expect(fromDb).not.toBeNull();
-      expect(fromDb?.title).toBe(validPayload.title);
-      expect(fromDb?.content).toBe(validPayload.content);
+    it("should auto-increment the id for each created note", () => {
+      const note1: Note = NoteDAO.create({ title: "Note 1", content: "Content" });
+      const note2: Note = NoteDAO.create({ title: "Note 2", content: "Content" });
+      const note3: Note = NoteDAO.create({ title: "Note 3", content: "Content" });
+
+      expect(note1.id).toBe(1);
+      expect(note2.id).toBe(2);
+      expect(note3.id).toBe(3);
+    });
+
+    it("should set createdAt and updatedAt to the same value on creation", () => {
+      const result: Note = NoteDAO.create({ title: "Note", content: "Content" });
+
+      expect(result.createdAt).toBeInstanceOf(Date);
+      expect(result.updatedAt).toBeInstanceOf(Date);
+      expect(result.createdAt.getTime()).toBe(result.updatedAt.getTime());
     });
   });
 
   describe("updateById", () => {
-    it("should update the note and return the updated record", async () => {
-      const created: Note = await prisma.note.create({ data: validPayload });
-      const update: NoteUpdatePayload = { title: "Updated title" };
+    it("should throw NotFoundError when note does not exist", () => {
+      const payload: NoteUpdatePayload = { title: "Updated" };
 
-      const result: Note = await NoteDAO.updateById(created.id, update);
-
-      expect(result.id).toBe(created.id);
-      expect(result.title).toBe("Updated title");
-      expect(result.content).toBe(validPayload.content);
+      expect(() => NoteDAO.updateById(999, payload)).toThrow(NotFoundError);
     });
 
-    it("should throw PrismaClientKnownRequestError P2025 when note does not exist", async () => {
-      try {
-        await NoteDAO.updateById(99999, { title: "x" });
-        fail("Should have thrown");
-      } catch (error) {
-        expect(error).toBeInstanceOf(Prisma.PrismaClientKnownRequestError);
-        expect((error as Prisma.PrismaClientKnownRequestError).code).toBe("P2025");
-      }
+    it("should update the title and return the updated note", () => {
+      const created: Note = NoteDAO.create({ title: "Original", content: "Content" });
+      const payload: NoteUpdatePayload = { title: "Updated Title" };
+
+      const result: Note = NoteDAO.updateById(created.id, payload);
+
+      expect(result.id).toBe(created.id);
+      expect(result.title).toBe("Updated Title");
+      expect(result.content).toBe("Content");
+    });
+
+    it("should update updatedAt while preserving createdAt", () => {
+      jest.useFakeTimers();
+      const created: Note = NoteDAO.create({ title: "Note", content: "Content" });
+      jest.advanceTimersByTime(1000);
+
+      const result: Note = NoteDAO.updateById(created.id, { title: "Updated" });
+      jest.useRealTimers();
+
+      expect(result.createdAt.getTime()).toBe(created.createdAt.getTime());
+      expect(result.updatedAt.getTime()).toBeGreaterThan(created.updatedAt.getTime());
     });
   });
 
   describe("deleteById", () => {
-    it("should delete the note and return the deleted record", async () => {
-      const created: Note = await prisma.note.create({ data: validPayload });
-
-      const result: Note = await NoteDAO.deleteById(created.id);
-
-      expect(result.id).toBe(created.id);
-
-      const fromDb: Note | null = await prisma.note.findUnique({
-        where: { id: created.id },
-      });
-      expect(fromDb).toBeNull();
+    it("should throw NotFoundError when note does not exist", () => {
+      expect(() => NoteDAO.deleteById(999)).toThrow(NotFoundError);
     });
 
-    it("should throw PrismaClientKnownRequestError P2025 when note does not exist", async () => {
-      try {
-        await NoteDAO.deleteById(99999);
-        fail("Should have thrown");
-      } catch (error) {
-        expect(error).toBeInstanceOf(Prisma.PrismaClientKnownRequestError);
-        expect((error as Prisma.PrismaClientKnownRequestError).code).toBe("P2025");
-      }
+    it("should delete and return the deleted note", () => {
+      const created: Note = NoteDAO.create({ title: "To delete", content: "Content" });
+
+      const result: Note = NoteDAO.deleteById(created.id);
+
+      expect(result.id).toBe(created.id);
+      expect(result.title).toBe("To delete");
+    });
+
+    it("should remove the note from the store", () => {
+      const created: Note = NoteDAO.create({ title: "To delete", content: "Content" });
+
+      NoteDAO.deleteById(created.id);
+
+      expect(NoteDAO.findById(created.id)).toBeNull();
     });
   });
 });

@@ -1,5 +1,4 @@
 import { envs } from "@/configs/env.config";
-import { prisma } from "@/configs/prisma.config";
 
 import app from "@/app";
 
@@ -16,9 +15,7 @@ const server = app.listen(PORT, onInit);
 
 const shutdown = (): void => {
   server.close((err?: Error) => {
-    void prisma.$disconnect().finally(() => {
-      process.exit(err ? 1 : 0);
-    });
+    process.exit(err ? 1 : 0);
   });
 
   setTimeout(() => {

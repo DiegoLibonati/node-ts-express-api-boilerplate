@@ -1,4 +1,4 @@
-import type { Note } from "@prisma/client";
+import type { Note } from "@/types/models";
 
 export const mockNote: Note = {
   id: 1,

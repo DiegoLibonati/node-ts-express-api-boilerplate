@@ -1,10 +1,10 @@
 {
-  "name": "node-ts-express-sql-api-boilerplate",
+  "name": "node-ts-express-api-boilerplate",
   "version": "0.0.1",
   "engines": {
     "node": ">=22.0.0"
   },
-  "description": "Node Ts Express SQL Api Boilerplate is a production-ready starting point for building REST APIs with Node.js, Express, TypeScript, and PostgreSQL via Prisma.",
+  "description": "Node Ts Express Api Boilerplate is a production-ready starting point for building REST APIs with Node.js, Express, and TypeScript.",
   "author": {
     "name": "Diego Libonati",
     "email": "diego.libonati1998@gmail.com"
@@ -13,7 +13,6 @@
   "private": true,
   "license": "MIT",
   "dependencies": {
-    "@prisma/client": "^5.20.0",
     "express": "^4.21.0",
     "morgan": "^1.10.1"
   },
@@ -32,7 +31,6 @@
     "jest": "^30.0.0",
     "lint-staged": "^15.0.0",
     "prettier": "^3.0.0",
-    "prisma": "^5.20.0",
     "supertest": "^7.0.0",
     "ts-jest": "^29.4.6",
     "tsc-alias": "^1.8.16",
@@ -54,9 +52,6 @@
     "test": "jest --runInBand --verbose",
     "test:watch": "jest --runInBand --watchAll --verbose",
     "test:coverage": "jest --runInBand --coverage",
-    "migrate:dev": "prisma migrate dev",
-    "migrate:deploy": "prisma migrate deploy",
-    "db:studio": "prisma studio",
     "prepare": "husky"
   },
   "lint-staged": {

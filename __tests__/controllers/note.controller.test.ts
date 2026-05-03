@@ -1,101 +1,81 @@
-import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
-
 import type { Request, Response } from "express";
-import type { Note } from "@prisma/client";
+import type { Note } from "@/types/models";
 
 import { NoteController } from "@/controllers/note.controller";
 
 import { NoteService } from "@/services/note.service";
 
-import { CODES_NOT, CODES_SUCCESS } from "@/constants/codes.constant";
-import { MESSAGES_NOT, MESSAGES_SUCCESS } from "@/constants/messages.constant";
+import { NotFoundError } from "@/helpers/not_found_error.helper";
+
+import { CODES_ERROR, CODES_NOT, CODES_SUCCESS } from "@/constants/codes.constant";
+import { MESSAGES_ERROR, MESSAGES_NOT, MESSAGES_SUCCESS } from "@/constants/messages.constant";
 
 import { mockNote } from "@tests/__mocks__/notes.mock";
 
-jest.mock("@/services/note.service");
+jest.mock("@/services/note.service", () => ({
+  NoteService: {
+    getAllNotes: jest.fn(),
+    getNoteById: jest.fn(),
+    createNote: jest.fn(),
+    updateNote: jest.fn(),
+    deleteNote: jest.fn(),
+  },
+}));
 
-const buildReq = <P extends Record<string, string> = Record<string, string>>(
-  overrides: Partial<Request> = {}
-): Request<P> => {
-  return {
-    params: {},
-    query: {},
-    body: {},
-    ...overrides,
-  } as unknown as Request<P>;
-};
+const buildReq = (body: unknown = {}): Request => ({ params: {}, body }) as unknown as Request;
+
+const buildReqWithId = (id: string, body: unknown = {}): Request<{ id: string }> =>
+  ({ params: { id }, body }) as unknown as Request<{ id: string }>;
 
 const buildRes = (): Response => {
-  const res: Partial<Response> = {};
-  res.status = jest.fn().mockReturnValue(res);
-  res.json = jest.fn().mockReturnValue(res);
-  return res as Response;
+  const mockRes = {
+    status: jest.fn().mockReturnThis(),
+    json: jest.fn().mockReturnThis(),
+  };
+  return mockRes as unknown as Response;
 };
 
 describe("note.controller", () => {
+  let res: Response;
+
+  beforeEach((): void => {
+    res = buildRes();
+  });
+
   describe("getAll", () => {
-    it("should return 200 with all notes", async () => {
-      (NoteService.getAllNotes as jest.Mock).mockResolvedValue([mockNote]);
-      const req = buildReq();
-      const res: Response = buildRes();
+    it("should return 200 with all notes", () => {
+      const mockNotes: Note[] = [mockNote];
+      (NoteService.getAllNotes as jest.Mock).mockReturnValue(mockNotes);
 
-      await NoteController.getAll(req, res);
+      NoteController.getAll(buildReq(), res);
 
-      expect(NoteService.getAllNotes).toHaveBeenCalledTimes(1);
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({
         code: CODES_SUCCESS.getAllNotes,
         message: MESSAGES_SUCCESS.getAllNotes,
-        data: { notes: [mockNote] },
+        data: { notes: mockNotes },
       });
     });
 
-    it("should return 200 with an empty array when there are no notes", async () => {
-      (NoteService.getAllNotes as jest.Mock).mockResolvedValue([]);
-      const req = buildReq();
-      const res: Response = buildRes();
+    it("should return 500 when service throws an unexpected error", () => {
+      (NoteService.getAllNotes as jest.Mock).mockImplementation(() => {
+        throw new Error("unexpected");
+      });
 
-      await NoteController.getAll(req, res);
-
-      expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ data: { notes: [] } }));
-    });
-
-    it("should return 500 when service throws", async () => {
-      (NoteService.getAllNotes as jest.Mock).mockRejectedValue(new Error("DB error"));
-      const req = buildReq();
-      const res: Response = buildRes();
-
-      await NoteController.getAll(req, res);
+      NoteController.getAll(buildReq(), res);
 
       expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith({
+        code: CODES_ERROR.generic,
+        message: MESSAGES_ERROR.generic,
+      });
     });
   });
 
   describe("getById", () => {
-    it("should return 200 with the note when found", async () => {
-      (NoteService.getNoteById as jest.Mock).mockResolvedValue(mockNote);
-      const req = buildReq<{ id: string }>({ params: { id: "1" } });
-      const res: Response = buildRes();
+    it("should return 400 when id is not a valid integer", () => {
+      NoteController.getById(buildReqWithId("abc"), res);
 
-      await NoteController.getById(req, res);
-
-      expect(NoteService.getNoteById).toHaveBeenCalledWith(1);
-      expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalledWith({
-        code: CODES_SUCCESS.getNote,
-        message: MESSAGES_SUCCESS.getNote,
-        data: { note: mockNote },
-      });
-    });
-
-    it("should return 400 when id is not a valid positive integer", async () => {
-      const req = buildReq<{ id: string }>({ params: { id: "abc" } });
-      const res: Response = buildRes();
-
-      await NoteController.getById(req, res);
-
-      expect(NoteService.getNoteById).not.toHaveBeenCalled();
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith({
         code: CODES_NOT.validId,
@@ -104,22 +84,21 @@ describe("note.controller", () => {
       });
     });
 
-    it("should return 400 when id is zero", async () => {
-      const req = buildReq<{ id: string }>({ params: { id: "0" } });
-      const res: Response = buildRes();
+    it("should return 400 when id is zero", () => {
+      NoteController.getById(buildReqWithId("0"), res);
 
-      await NoteController.getById(req, res);
-
-      expect(NoteService.getNoteById).not.toHaveBeenCalled();
       expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        code: CODES_NOT.validId,
+        message: MESSAGES_NOT.validId,
+        data: null,
+      });
     });
 
-    it("should return 404 when note is not found", async () => {
-      (NoteService.getNoteById as jest.Mock).mockResolvedValue(null);
-      const req = buildReq<{ id: string }>({ params: { id: "999" } });
-      const res: Response = buildRes();
+    it("should return 404 when note is not found", () => {
+      (NoteService.getNoteById as jest.Mock).mockReturnValue(null);
 
-      await NoteController.getById(req, res);
+      NoteController.getById(buildReqWithId("1"), res);
 
       expect(res.status).toHaveBeenCalledWith(404);
       expect(res.json).toHaveBeenCalledWith({
@@ -129,46 +108,38 @@ describe("note.controller", () => {
       });
     });
 
-    it("should return 500 when service throws a generic error", async () => {
-      (NoteService.getNoteById as jest.Mock).mockRejectedValue(new Error("DB error"));
-      const req = buildReq<{ id: string }>({ params: { id: "1" } });
-      const res: Response = buildRes();
+    it("should return 200 with note when it exists", () => {
+      (NoteService.getNoteById as jest.Mock).mockReturnValue(mockNote);
 
-      await NoteController.getById(req, res);
+      NoteController.getById(buildReqWithId("1"), res);
 
-      expect(res.status).toHaveBeenCalledWith(500);
-    });
-  });
-
-  describe("create", () => {
-    it("should return 201 with the created note and trim title and content", async () => {
-      (NoteService.createNote as jest.Mock).mockResolvedValue(mockNote);
-      const req = buildReq({
-        body: { title: "  Test note  ", content: "  Test content  " },
-      });
-      const res: Response = buildRes();
-
-      await NoteController.create(req, res);
-
-      expect(NoteService.createNote).toHaveBeenCalledWith({
-        title: "Test note",
-        content: "Test content",
-      });
-      expect(res.status).toHaveBeenCalledWith(201);
+      expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({
-        code: CODES_SUCCESS.createNote,
-        message: MESSAGES_SUCCESS.createNote,
+        code: CODES_SUCCESS.getNote,
+        message: MESSAGES_SUCCESS.getNote,
         data: { note: mockNote },
       });
     });
 
-    it("should return 400 when title is missing", async () => {
-      const req = buildReq({ body: { content: "Test content" } });
-      const res: Response = buildRes();
+    it("should return 500 when service throws an unexpected error", () => {
+      (NoteService.getNoteById as jest.Mock).mockImplementation(() => {
+        throw new Error("unexpected");
+      });
 
-      await NoteController.create(req, res);
+      NoteController.getById(buildReqWithId("1"), res);
 
-      expect(NoteService.createNote).not.toHaveBeenCalled();
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith({
+        code: CODES_ERROR.generic,
+        message: MESSAGES_ERROR.generic,
+      });
+    });
+  });
+
+  describe("create", () => {
+    it("should return 400 when title is missing", () => {
+      NoteController.create(buildReq({ content: "Content" }), res);
+
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith({
         code: CODES_NOT.validTitle,
@@ -177,23 +148,20 @@ describe("note.controller", () => {
       });
     });
 
-    it("should return 400 when title is blank whitespace", async () => {
-      const req = buildReq({ body: { title: "   ", content: "Test content" } });
-      const res: Response = buildRes();
+    it("should return 400 when title is blank", () => {
+      NoteController.create(buildReq({ title: "   ", content: "Content" }), res);
 
-      await NoteController.create(req, res);
-
-      expect(NoteService.createNote).not.toHaveBeenCalled();
       expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        code: CODES_NOT.validTitle,
+        message: MESSAGES_NOT.validTitle,
+        data: null,
+      });
     });
 
-    it("should return 400 when content is missing", async () => {
-      const req = buildReq({ body: { title: "Test note" } });
-      const res: Response = buildRes();
+    it("should return 400 when content is missing", () => {
+      NoteController.create(buildReq({ title: "Title" }), res);
 
-      await NoteController.create(req, res);
-
-      expect(NoteService.createNote).not.toHaveBeenCalled();
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith({
         code: CODES_NOT.validContent,
@@ -202,95 +170,127 @@ describe("note.controller", () => {
       });
     });
 
-    it("should return 500 when service throws", async () => {
-      (NoteService.createNote as jest.Mock).mockRejectedValue(new Error("DB error"));
-      const req = buildReq({ body: { title: "Test", content: "Content" } });
-      const res: Response = buildRes();
+    it("should return 400 when content is blank", () => {
+      NoteController.create(buildReq({ title: "Title", content: "   " }), res);
 
-      await NoteController.create(req, res);
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        code: CODES_NOT.validContent,
+        message: MESSAGES_NOT.validContent,
+        data: null,
+      });
+    });
+
+    it("should return 201 with created note", () => {
+      (NoteService.createNote as jest.Mock).mockReturnValue(mockNote);
+
+      NoteController.create(buildReq({ title: "Title", content: "Content" }), res);
+
+      expect(res.status).toHaveBeenCalledWith(201);
+      expect(res.json).toHaveBeenCalledWith({
+        code: CODES_SUCCESS.createNote,
+        message: MESSAGES_SUCCESS.createNote,
+        data: { note: mockNote },
+      });
+    });
+
+    it("should call service with trimmed title and content", () => {
+      (NoteService.createNote as jest.Mock).mockReturnValue(mockNote);
+
+      NoteController.create(buildReq({ title: "  Title  ", content: "  Content  " }), res);
+
+      expect(NoteService.createNote).toHaveBeenCalledWith({
+        title: "Title",
+        content: "Content",
+      });
+    });
+
+    it("should return 500 when service throws an unexpected error", () => {
+      (NoteService.createNote as jest.Mock).mockImplementation(() => {
+        throw new Error("unexpected");
+      });
+
+      NoteController.create(buildReq({ title: "Title", content: "Content" }), res);
 
       expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith({
+        code: CODES_ERROR.generic,
+        message: MESSAGES_ERROR.generic,
+      });
     });
   });
 
   describe("update", () => {
-    it("should return 200 with the updated note and trim fields", async () => {
-      const updatedNote: Note = { ...mockNote, title: "Updated title" };
-      (NoteService.updateNote as jest.Mock).mockResolvedValue(updatedNote);
-      const req = buildReq<{ id: string }>({
-        params: { id: "1" },
-        body: { title: "  Updated title  " },
+    it("should return 400 when id is not a valid integer", () => {
+      NoteController.update(buildReqWithId("abc", { title: "Title" }), res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        code: CODES_NOT.validId,
+        message: MESSAGES_NOT.validId,
+        data: null,
       });
-      const res: Response = buildRes();
+    });
 
-      await NoteController.update(req, res);
+    it("should return 200 with updated note", () => {
+      (NoteService.updateNote as jest.Mock).mockReturnValue(mockNote);
 
-      expect(NoteService.updateNote).toHaveBeenCalledWith(1, { title: "Updated title" });
+      NoteController.update(buildReqWithId("1", { title: "Updated" }), res);
+
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({
         code: CODES_SUCCESS.updateNote,
         message: MESSAGES_SUCCESS.updateNote,
-        data: { note: updatedNote },
+        data: { note: mockNote },
       });
     });
 
-    it("should not include undefined fields in the update payload", async () => {
-      (NoteService.updateNote as jest.Mock).mockResolvedValue(mockNote);
-      const req = buildReq<{ id: string }>({
-        params: { id: "1" },
-        body: { title: "New title" },
+    it("should return 404 when service throws NotFoundError", () => {
+      (NoteService.updateNote as jest.Mock).mockImplementation(() => {
+        throw new NotFoundError();
       });
-      const res: Response = buildRes();
 
-      await NoteController.update(req, res);
-
-      expect(NoteService.updateNote).toHaveBeenCalledWith(1, { title: "New title" });
-    });
-
-    it("should return 400 when id is not a valid positive integer", async () => {
-      const req = buildReq<{ id: string }>({ params: { id: "abc" }, body: { title: "Updated" } });
-      const res: Response = buildRes();
-
-      await NoteController.update(req, res);
-
-      expect(NoteService.updateNote).not.toHaveBeenCalled();
-      expect(res.status).toHaveBeenCalledWith(400);
-    });
-
-    it("should return 404 when note is not found", async () => {
-      const notFoundError: PrismaClientKnownRequestError = new PrismaClientKnownRequestError(
-        "Record not found",
-        { code: "P2025", clientVersion: "5.0.0" }
-      );
-      (NoteService.updateNote as jest.Mock).mockRejectedValue(notFoundError);
-      const req = buildReq<{ id: string }>({ params: { id: "999" }, body: { title: "Updated" } });
-      const res: Response = buildRes();
-
-      await NoteController.update(req, res);
+      NoteController.update(buildReqWithId("1", { title: "Updated" }), res);
 
       expect(res.status).toHaveBeenCalledWith(404);
+      expect(res.json).toHaveBeenCalledWith({
+        code: CODES_NOT.foundNote,
+        message: MESSAGES_NOT.foundNote,
+      });
     });
 
-    it("should return 500 when service throws a generic error", async () => {
-      (NoteService.updateNote as jest.Mock).mockRejectedValue(new Error("DB error"));
-      const req = buildReq<{ id: string }>({ params: { id: "1" }, body: { title: "Updated" } });
-      const res: Response = buildRes();
+    it("should return 500 when service throws an unexpected error", () => {
+      (NoteService.updateNote as jest.Mock).mockImplementation(() => {
+        throw new Error("unexpected");
+      });
 
-      await NoteController.update(req, res);
+      NoteController.update(buildReqWithId("1", { title: "Updated" }), res);
 
       expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith({
+        code: CODES_ERROR.generic,
+        message: MESSAGES_ERROR.generic,
+      });
     });
   });
 
   describe("delete", () => {
-    it("should return 200 with null data when note is deleted", async () => {
-      (NoteService.deleteNote as jest.Mock).mockResolvedValue(mockNote);
-      const req = buildReq<{ id: string }>({ params: { id: "1" } });
-      const res: Response = buildRes();
+    it("should return 400 when id is not a valid integer", () => {
+      NoteController.delete(buildReqWithId("abc"), res);
 
-      await NoteController.delete(req, res);
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        code: CODES_NOT.validId,
+        message: MESSAGES_NOT.validId,
+        data: null,
+      });
+    });
 
-      expect(NoteService.deleteNote).toHaveBeenCalledWith(1);
+    it("should return 200 when note is deleted successfully", () => {
+      (NoteService.deleteNote as jest.Mock).mockReturnValue(mockNote);
+
+      NoteController.delete(buildReqWithId("1"), res);
+
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({
         code: CODES_SUCCESS.deleteNote,
@@ -299,38 +299,32 @@ describe("note.controller", () => {
       });
     });
 
-    it("should return 400 when id is not a valid positive integer", async () => {
-      const req = buildReq<{ id: string }>({ params: { id: "0" } });
-      const res: Response = buildRes();
+    it("should return 404 when service throws NotFoundError", () => {
+      (NoteService.deleteNote as jest.Mock).mockImplementation(() => {
+        throw new NotFoundError();
+      });
 
-      await NoteController.delete(req, res);
-
-      expect(NoteService.deleteNote).not.toHaveBeenCalled();
-      expect(res.status).toHaveBeenCalledWith(400);
-    });
-
-    it("should return 404 when note is not found", async () => {
-      const notFoundError: PrismaClientKnownRequestError = new PrismaClientKnownRequestError(
-        "Record not found",
-        { code: "P2025", clientVersion: "5.0.0" }
-      );
-      (NoteService.deleteNote as jest.Mock).mockRejectedValue(notFoundError);
-      const req = buildReq<{ id: string }>({ params: { id: "999" } });
-      const res: Response = buildRes();
-
-      await NoteController.delete(req, res);
+      NoteController.delete(buildReqWithId("1"), res);
 
       expect(res.status).toHaveBeenCalledWith(404);
+      expect(res.json).toHaveBeenCalledWith({
+        code: CODES_NOT.foundNote,
+        message: MESSAGES_NOT.foundNote,
+      });
     });
 
-    it("should return 500 when service throws a generic error", async () => {
-      (NoteService.deleteNote as jest.Mock).mockRejectedValue(new Error("DB error"));
-      const req = buildReq<{ id: string }>({ params: { id: "1" } });
-      const res: Response = buildRes();
+    it("should return 500 when service throws an unexpected error", () => {
+      (NoteService.deleteNote as jest.Mock).mockImplementation(() => {
+        throw new Error("unexpected");
+      });
 
-      await NoteController.delete(req, res);
+      NoteController.delete(buildReqWithId("1"), res);
 
       expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith({
+        code: CODES_ERROR.generic,
+        message: MESSAGES_ERROR.generic,
+      });
     });
   });
 });

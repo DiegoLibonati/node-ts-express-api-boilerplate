@@ -1,29 +1,39 @@
-import type { Note } from "@prisma/client";
+import type { Note } from "@/types/models";
 import type { NoteCreatePayload, NoteUpdatePayload } from "@/types/payloads";
 
-import { prisma } from "@/configs/prisma.config";
+import { NotFoundError } from "@/helpers/not_found_error.helper";
+
+let notes: Note[] = [];
+let nextId = 1;
+
+export const resetNoteStore = (): void => {
+  notes = [];
+  nextId = 1;
+};
 
 export const NoteDAO = {
-  findMany: async (): Promise<Note[]> =>
-    await prisma.note.findMany({
-      orderBy: { createdAt: "desc" },
-    }),
+  findMany: (): Note[] => [...notes].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()),
 
-  findById: async (id: number): Promise<Note | null> =>
-    await prisma.note.findUnique({
-      where: { id },
-    }),
+  findById: (id: number): Note | null => notes.find((n) => n.id === id) ?? null,
 
-  create: async (data: NoteCreatePayload): Promise<Note> => await prisma.note.create({ data }),
+  create: (data: NoteCreatePayload): Note => {
+    const now = new Date();
+    const note: Note = { id: nextId++, ...data, createdAt: now, updatedAt: now };
+    notes.push(note);
+    return note;
+  },
 
-  updateById: async (id: number, data: NoteUpdatePayload): Promise<Note> =>
-    await prisma.note.update({
-      where: { id },
-      data,
-    }),
+  updateById: (id: number, data: NoteUpdatePayload): Note => {
+    const index = notes.findIndex((n) => n.id === id);
+    if (index === -1) throw new NotFoundError();
+    notes[index] = { ...notes[index]!, ...data, updatedAt: new Date() };
+    return notes[index];
+  },
 
-  deleteById: async (id: number): Promise<Note> =>
-    await prisma.note.delete({
-      where: { id },
-    }),
+  deleteById: (id: number): Note => {
+    const index = notes.findIndex((n) => n.id === id);
+    if (index === -1) throw new NotFoundError();
+    const [deleted] = notes.splice(index, 1);
+    return deleted!;
+  },
 };
