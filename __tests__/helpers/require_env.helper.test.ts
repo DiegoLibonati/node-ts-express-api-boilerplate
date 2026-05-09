@@ -5,7 +5,7 @@ describe("require_env.helper", () => {
     const testKey = "TEST_REQUIRE_ENV_UNIQUE_KEY";
 
     afterEach((): void => {
-      delete process.env.testKey;
+      Reflect.deleteProperty(process.env, testKey);
     });
 
     it("should return the value when the env var is set", () => {

@@ -15,6 +15,16 @@ const buildRes = (): Response => {
 
 describe("error_handler.middleware", () => {
   describe("errorHandler", () => {
+    beforeEach(() => {
+      jest.spyOn(console, "error").mockImplementation(() => {
+        // Empty fn
+      });
+    });
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
     it("should return 500 with generic error code and message", () => {
       const err: Error = new Error("Something went wrong");
       const req: Request = {} as Request;
