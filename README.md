@@ -6,18 +6,6 @@ This project was created primarily for **educational and learning purposes**.
 While it is well-structured and could technically be used in production, it is **not intended for commercialization**.  
 The main goal is to explore and demonstrate best practices, patterns, and technologies in software development.
 
-## Getting Started
-
-> **Requirements:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) must be installed.
-
-1. Clone the repository
-2. Navigate to the project folder
-3. Copy the environment file and fill in the values.
-4. Build the Docker image: `docker-compose -f dev.docker-compose.yml build --no-cache`
-5. Start the container: `docker-compose -f dev.docker-compose.yml up --force-recreate`
-
-The API will be available at `http://localhost:5050`.
-
 ## Description
 
 **Node Ts Express Api Boilerplate** is a production-ready starting point for building REST APIs with Node.js, Express, and TypeScript. It is not a framework or a library — it is the foundation you clone once and stop rebuilding from scratch on every new backend project.
@@ -42,6 +30,8 @@ The API will be available at `http://localhost:5050`.
 2. Copy `.env.example` to `.env` and fill in your values.
 3. Start the stack with Docker Compose.
 4. Replace the `Note` model, DAO, service, controller, and routes with your own domain logic — the folder structure, middleware setup, error handling, and tooling stay exactly as they are.
+
+The next sections walk through the technology stack, the local setup, the runtime configuration, and finally the path to a deployable production build.
 
 ## Technologies Used
 
@@ -84,71 +74,75 @@ The API will be available at `http://localhost:5050`.
 "typescript-eslint": "^8.0.0"
 ```
 
-## Available Scripts
+## Getting Started
 
-| Command                 | Description                      |
-| ----------------------- | -------------------------------- |
-| `npm run dev`           | Start development server         |
-| `npm run build`         | Build for production             |
-| `npm run start`         | Start production server          |
-| `npm run type-check`    | Run TypeScript type checking     |
-| `npm run test`          | Run tests                        |
-| `npm run test:watch`    | Run tests in watch mode          |
-| `npm run test:coverage` | Run tests with coverage          |
-| `npm run lint`          | Check for linting errors         |
-| `npm run lint:fix`      | Fix linting errors               |
-| `npm run lint:all`      | Fix linting errors (src + tests) |
-| `npm run format`        | Format code with Prettier        |
-| `npm run format:check`  | Check code formatting            |
-| `npm run format:all`    | Format code (src + tests)        |
+> **Requirements:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) must be installed.
 
-## PostgreSQL + Prisma version
+1. Clone the repository.
+2. Navigate to the project folder.
+3. Copy `.env.example` to `.env` and fill in the values (see [Env Keys](#env-keys) for the full reference).
+4. Build the Docker image: `docker-compose -f dev.docker-compose.yml build --no-cache`
+5. Start the container: `docker-compose -f dev.docker-compose.yml up --force-recreate`
 
-If you need a version of this boilerplate backed by a real database, check out the SQL variant:
+The API will be available at `http://localhost:5050`.
 
-[`node-ts-express-sql-api-boilerplate`](https://github.com/DiegoLibonati/node-ts-express-sql-api-boilerplate)
+If you prefer to run the dev server outside Docker:
 
-It includes everything in this boilerplate plus PostgreSQL via Prisma ORM, Docker Compose database services, migrations, and a Prisma-connected DAO layer — same architecture, same tooling, same folder structure.
+| Command              | Description                  |
+| -------------------- | ---------------------------- |
+| `npm run dev`        | Start development server     |
+| `npm run type-check` | Run TypeScript type checking |
 
-## Portfolio Link
+### Pre-Commit for Development
 
-[`https://www.diegolibonati.com.ar/#/project/node-ts-express-api-boilerplate`](https://www.diegolibonati.com.ar/#/project/node-ts-express-api-boilerplate)
+Code quality and formatting are enforced automatically on every commit by ESLint, Prettier, Husky, and lint-staged. No manual formatting step is required, and commits with errors are blocked before they reach the repo.
 
-## Testing
+#### ESLint
 
-1. Navigate to the project folder
-2. Execute: `npm test`
+Configured with TypeScript strict rules (`strictTypeChecked` + `stylisticTypeChecked`):
 
-For coverage report:
+- Explicit return types required on all functions
+- No `any` type allowed
+- Consistent type imports enforced (`import type`)
+- Interfaces preferred over type aliases
+- No unused variables (args prefixed with `_` are exempt)
+- `===` required — no loose equality
+- `console` usage warns; `debugger` is an error
+- Relaxed rules inside `__tests__/` to allow unsafe assertions and `any` in test code
 
-```bash
-npm run test:coverage
-```
+#### Prettier
 
-## Production
+Automatic code formatting on save and on commit:
 
-### Build and start
+- 2 spaces indentation
+- Semicolons required
+- Double quotes
+- Trailing commas (ES5)
+- Max line width: 100 characters
+- LF line endings
 
-```bash
-docker-compose -f prod.docker-compose.yml up --build --force-recreate
-```
+#### Husky + lint-staged
 
-### What the production image does differently
+Pre-commit hooks that automatically:
 
-- **Multi-stage build** — a `builder` stage compiles TypeScript (`tsc`) and resolves path aliases (`tsc-alias`), then a lean `runner` stage copies only the compiled `dist/`, production `node_modules`. Dev dependencies are stripped with `npm prune --omit=dev`.
-- **Non-root user** — the runner stage creates a dedicated `appuser` and drops root privileges before the process starts.
-- **No source maps, no hot reload** — the container runs `node dist/server.js` directly.
+- Run ESLint with auto-fix on staged `.ts` files
+- Format `.ts`, `.json`, and `.md` files with Prettier
+- Block commits with linting errors
 
-### Environment variables
+#### Available Scripts
 
-Production reads from `.env` via `env_file` in `prod.docker-compose.yml`. Make sure the following are set with production values before deploying:
-
-```bash
-NODE_ENV=production
-PORT=5050
-```
+| Command                | Description                      |
+| ---------------------- | -------------------------------- |
+| `npm run lint`         | Check for linting errors         |
+| `npm run lint:fix`     | Fix linting errors               |
+| `npm run lint:all`     | Fix linting errors (src + tests) |
+| `npm run format`       | Format code with Prettier        |
+| `npm run format:check` | Check code formatting            |
+| `npm run format:all`   | Format code (src + tests)        |
 
 ## Env Keys
+
+Variables consumed by `src/configs/env.config.ts`. Missing required values cause the process to throw at startup, before the HTTP server binds.
 
 | Key                   | Description                                                            |
 | --------------------- | ---------------------------------------------------------------------- |
@@ -236,6 +230,8 @@ node-ts-express-api-boilerplate/
 
 ## Architecture & Design Patterns
 
+The folder layout above maps directly onto the layered design described below — each top-level folder under `src/` corresponds to one layer or one cross-cutting concern.
+
 ### Layered Architecture
 
 The codebase is organized into four explicit layers, each with a single responsibility. A layer only depends on the layer directly below it — no skipping layers.
@@ -273,56 +269,103 @@ Input types (`NoteCreatePayload`, `NoteUpdatePayload`) are defined in `src/types
 
 The server listens for `SIGTERM` and `SIGINT` signals. On shutdown, it stops accepting new connections and exits cleanly. A 10-second safety timeout forces exit if the shutdown stalls.
 
-## Code Quality Tools
+## Testing
 
-### ESLint
+The test suite uses Jest with `ts-jest`, Supertest for HTTP-level assertions, and the `resetNoteStore` hook to clear the in-memory DAO between tests — keeping each test fully isolated.
 
-Configured with TypeScript strict rules (`strictTypeChecked` + `stylisticTypeChecked`):
+1. Navigate to the project folder.
+2. Run the suite:
 
-- Explicit return types required on all functions
-- No `any` type allowed
-- Consistent type imports enforced (`import type`)
-- Interfaces preferred over type aliases
-- No unused variables (args prefixed with `_` are exempt)
-- `===` required — no loose equality
-- `console` usage warns; `debugger` is an error
-- Relaxed rules inside `__tests__/` to allow unsafe assertions and `any` in test code
+```bash
+npm test
+```
 
-### Prettier
+For a coverage report:
 
-Automatic code formatting on save and on commit:
+```bash
+npm run test:coverage
+```
 
-- 2 spaces indentation
-- Semicolons required
-- Double quotes
-- Trailing commas (ES5)
-- Max line width: 100 characters
-- LF line endings
+| Command                 | Description             |
+| ----------------------- | ----------------------- |
+| `npm run test`          | Run tests               |
+| `npm run test:watch`    | Run tests in watch mode |
+| `npm run test:coverage` | Run tests with coverage |
 
-### Husky + lint-staged
+## Security Audit
 
-Pre-commit hooks that automatically:
+Once the suite is green, audit dependencies before producing a build.
 
-- Run ESLint with auto-fix on staged `.ts` files
-- Format `.ts`, `.json`, and `.md` files with Prettier
-- Block commits with linting errors
-
-## Security
-
-### npm audit
-
-Check for vulnerabilities in dependencies:
+Check for vulnerabilities:
 
 ```bash
 npm audit
 ```
 
-Fix vulnerabilities automatically (when a safe upgrade exists):
+Apply automatic fixes (when a safe upgrade exists):
 
 ```bash
 npm audit fix
 ```
 
+## Build
+
+With tests passing and dependencies clean, compile the production artifacts.
+
+The production pipeline runs `tsc` (TypeScript → JavaScript in `dist/`) followed by `tsc-alias` (rewrites `@/` path aliases to relative paths so the compiled output runs without a runtime resolver).
+
+| Command         | Description             |
+| --------------- | ----------------------- |
+| `npm run build` | Build for production    |
+| `npm run start` | Start production server |
+
+The production Docker image wraps this same build inside a multi-stage flow:
+
+- **Multi-stage build** — a `builder` stage compiles TypeScript (`tsc`) and resolves path aliases (`tsc-alias`), then a lean `runner` stage copies only the compiled `dist/` and production `node_modules`. Dev dependencies are stripped with `npm prune --omit=dev`.
+- **Non-root user** — the runner stage creates a dedicated `appuser` and drops root privileges before the process starts.
+- **No source maps, no hot reload** — the container runs `node dist/server.js` directly.
+
+## Production
+
+Pre-flight checklist before deploying:
+
+1. [Testing](#testing) — full suite green.
+2. [Security Audit](#security-audit) — `npm audit` clean (or known-safe).
+3. [Build](#build) — production image builds successfully.
+
+Once those pass, configure the runtime environment and distribute the image.
+
+### Configure `.env` for production
+
+Production reads from `.env` via `env_file` in `prod.docker-compose.yml`. Make sure the following are set with production values before deploying:
+
+```bash
+NODE_ENV=production
+PORT=5050
+```
+
+See [Env Keys](#env-keys) for the full variable reference.
+
+### Distribute
+
+Build and start the production stack:
+
+```bash
+docker-compose -f prod.docker-compose.yml up --build --force-recreate
+```
+
 ## Known Issues
 
 None at the moment.
+
+## PostgreSQL + Prisma version
+
+If you need a version of this boilerplate backed by a real database, check out the SQL variant:
+
+[`node-ts-express-sql-api-boilerplate`](https://github.com/DiegoLibonati/node-ts-express-sql-api-boilerplate)
+
+It includes everything in this boilerplate plus PostgreSQL via Prisma ORM, Docker Compose database services, migrations, and a Prisma-connected DAO layer — same architecture, same tooling, same folder structure.
+
+## Portfolio Link
+
+[`https://www.diegolibonati.com.ar/#/project/node-ts-express-api-boilerplate`](https://www.diegolibonati.com.ar/#/project/node-ts-express-api-boilerplate)
